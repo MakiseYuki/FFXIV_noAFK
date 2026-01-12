@@ -24,7 +24,7 @@ DOUBLE_ACTION_PROBABILITY = 0.15
 
 # Probability of occasional long break (simulates AFK-like behavior but within safe limits)
 LONG_BREAK_PROBABILITY = 0.1
-LONG_BREAK_DURATION = (1200, 1800)  # 20-30 minutes
+LONG_BREAK_DURATION = (600, 1200)  # 10-20 minutes
 
 # Delay before pressing key after window focus (in seconds)
 # Variable to appear more human-like
