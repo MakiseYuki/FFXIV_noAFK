@@ -15,7 +15,7 @@ import os
 try:
     import pyautogui
     import pynput
-    from pynput.keyboard import Controller
+    from pynput.keyboard import Controller, Key
     from pynput.mouse import Controller as MouseController
     import win32gui
     import win32con
@@ -23,6 +23,30 @@ except ImportError as e:
     print(f"Error: Required library not found. Please run: pip install -r requirements.txt")
     print(f"Missing: {e}")
     sys.exit(1)
+
+# Map string key names to pynput Key objects for special keys
+SPECIAL_KEYS = {
+    'space': Key.space,
+    'enter': Key.enter,
+    'tab': Key.tab,
+    'shift': Key.shift,
+    'ctrl': Key.ctrl,
+    'alt': Key.alt,
+    'esc': Key.esc,
+    'escape': Key.esc,
+    'up': Key.up,
+    'down': Key.down,
+    'left': Key.left,
+    'right': Key.right,
+}
+
+def get_key(key_string):
+    """Convert string key name to pynput key object"""
+    key_lower = key_string.lower()
+    if key_lower in SPECIAL_KEYS:
+        return SPECIAL_KEYS[key_lower]
+    # For regular characters, return the character itself
+    return key_string
 
 # Import configuration
 from config import (
@@ -141,12 +165,15 @@ def simulate_action():
         # Decide which type of action to perform
         if random.random() < SECONDARY_ACTION_PROBABILITY:
             # Perform secondary action (movement)
-            action = random.choice(SECONDARY_ACTIONS)
+            action_str = random.choice(SECONDARY_ACTIONS)
             action_type = "movement"
         else:
             # Perform primary action (jump)
-            action = random.choice(PRIMARY_ACTIONS)
+            action_str = random.choice(PRIMARY_ACTIONS)
             action_type = "jump"
+        
+        # Convert string to pynput key object
+        action = get_key(action_str)
         
         # Determine if double action
         is_double_action = random.random() < DOUBLE_ACTION_PROBABILITY
@@ -167,7 +194,7 @@ def simulate_action():
         # Release key
         keyboard.release(action)
         
-        action_log = f"{action_type.upper()} - Key: {action}"
+        action_log = f"{action_type.upper()} - Key: {action_str}"
         
         # Double action
         if is_double_action:
