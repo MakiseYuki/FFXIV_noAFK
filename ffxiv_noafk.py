@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 FFXIV NoAFK - Prevents character from going AFK in Final Fantasy XIV
-Simulates periodic jump actions to maintain active status
+Simulates realistic human-like actions to maintain active status
 """
 
 import time
@@ -16,6 +16,7 @@ try:
     import pyautogui
     import pynput
     from pynput.keyboard import Controller
+    from pynput.mouse import Controller as MouseController
     import win32gui
     import win32con
 except ImportError as e:
@@ -26,7 +27,11 @@ except ImportError as e:
 # Import configuration
 from config import (
     GAME_WINDOW_TITLE, BASE_INTERVAL, VARIANCE_RANGE,
-    JUMP_KEY, FOCUS_DELAY, LOG_FILE, ENABLE_CONSOLE_LOG
+    PRIMARY_ACTIONS, SECONDARY_ACTIONS, SECONDARY_ACTION_PROBABILITY,
+    DOUBLE_ACTION_PROBABILITY, LONG_BREAK_PROBABILITY, LONG_BREAK_DURATION,
+    FOCUS_DELAY_MIN, FOCUS_DELAY_MAX, KEY_PRESS_MIN, KEY_PRESS_MAX,
+    ACTION_DELAY_MIN, ACTION_DELAY_MAX, ENABLE_MOUSE_MOVEMENT,
+    MOUSE_MOVE_PROBABILITY, LOG_FILE, ENABLE_CONSOLE_LOG, ENABLE_DETAILED_LOG
 )
 
 # Setup logging
@@ -89,53 +94,133 @@ def focus_game_window(hwnd):
         logger.error(f"Error focusing window: {e}")
         return False
 
-def simulate_jump():
+def perform_mouse_movement():
     """
-    Simulate a jump action by pressing space key
-    Uses pynput for more discrete input
+    Perform subtle mouse movement to appear more human-like
+    Moves mouse slightly within game window bounds
+    """
+    try:
+        if not ENABLE_MOUSE_MOVEMENT or random.random() > MOUSE_MOVE_PROBABILITY:
+            return
+        
+        mouse = MouseController()
+        current_x, current_y = mouse.position
+        
+        # Move mouse by small amount (5-20 pixels)
+        offset_x = random.randint(-20, 20)
+        offset_y = random.randint(-20, 20)
+        
+        new_x = max(0, current_x + offset_x)
+        new_y = max(0, current_y + offset_y)
+        
+        # Smooth movement over 0.2-0.5 seconds
+        duration = random.uniform(0.2, 0.5)
+        steps = 5
+        step_time = duration / steps
+        
+        for i in range(steps):
+            current_x_temp = current_x + (new_x - current_x) * (i / steps)
+            current_y_temp = current_y + (new_y - current_y) * (i / steps)
+            mouse.position = (current_x_temp, current_y_temp)
+            time.sleep(step_time)
+        
+        if ENABLE_DETAILED_LOG:
+            logger.debug(f"Mouse moved: ({current_x}, {current_y}) -> ({new_x}, {new_y})")
+    
+    except Exception as e:
+        logger.debug(f"Mouse movement error (non-critical): {e}")
+
+def simulate_action():
+    """
+    Simulate a human-like action
+    Can be primary action (jump), secondary action (movement), or double action
     """
     try:
         keyboard = Controller()
         
-        # Add slight delay before pressing (more human-like)
+        # Decide which type of action to perform
+        if random.random() < SECONDARY_ACTION_PROBABILITY:
+            # Perform secondary action (movement)
+            action = random.choice(SECONDARY_ACTIONS)
+            action_type = "movement"
+        else:
+            # Perform primary action (jump)
+            action = random.choice(PRIMARY_ACTIONS)
+            action_type = "jump"
+        
+        # Determine if double action
+        is_double_action = random.random() < DOUBLE_ACTION_PROBABILITY
+        
+        # Perform mouse movement occasionally
+        perform_mouse_movement()
+        
+        # Add delay before action
         time.sleep(random.uniform(0.1, 0.3))
         
-        # Press space key
-        keyboard.press(' ')
+        # Press key
+        keyboard.press(action)
         
-        # Brief hold (human-like key press duration)
-        time.sleep(random.uniform(0.05, 0.15))
+        # Variable key hold duration (more human-like)
+        hold_time = random.uniform(KEY_PRESS_MIN, KEY_PRESS_MAX)
+        time.sleep(hold_time)
         
         # Release key
-        keyboard.release(' ')
+        keyboard.release(action)
         
-        logger.info("Jump action executed successfully")
+        action_log = f"{action_type.upper()} - Key: {action}"
+        
+        # Double action
+        if is_double_action:
+            time.sleep(random.uniform(0.1, 0.3))
+            keyboard.press(action)
+            time.sleep(random.uniform(KEY_PRESS_MIN, KEY_PRESS_MAX))
+            keyboard.release(action)
+            action_log += " (DOUBLE)"
+        
+        logger.info(f"Action executed: {action_log}")
+        
+        # Delay after action
+        time.sleep(random.uniform(ACTION_DELAY_MIN, ACTION_DELAY_MAX))
+        
         return True
+    
     except Exception as e:
-        logger.error(f"Error executing jump action: {e}")
+        logger.error(f"Error executing action: {e}")
         return False
 
 def get_next_interval():
     """
     Calculate next interval with random variance
-    Makes timing appear more human-like
+    Makes timing appear more human-like and unpredictable
     """
+    # Check for occasional long break (simulates human AFK-like behavior)
+    if random.random() < LONG_BREAK_PROBABILITY:
+        long_break = random.uniform(LONG_BREAK_DURATION[0], LONG_BREAK_DURATION[1])
+        logger.info(f"Long break scheduled: {long_break/60:.1f} minutes (human-like behavior)")
+        return long_break
+    
+    # Normal variance
     variance = random.uniform(-VARIANCE_RANGE, VARIANCE_RANGE)
     next_interval = BASE_INTERVAL + variance
+    
     return max(next_interval, 60)  # Minimum 60 seconds
 
 def main():
     """
     Main loop for the NoAFK script
     """
-    logger.info("=" * 60)
-    logger.info("FFXIV NoAFK Script Started")
+    logger.info("=" * 70)
+    logger.info("FFXIV NoAFK Script Started - Enhanced Human-like Behavior")
     logger.info(f"Game Window: {GAME_WINDOW_TITLE}")
     logger.info(f"Base Interval: {BASE_INTERVAL}s ({BASE_INTERVAL/60:.1f} minutes)")
     logger.info(f"Variance: ±{VARIANCE_RANGE}s (±{VARIANCE_RANGE/60:.1f} minutes)")
-    logger.info("=" * 60)
+    logger.info(f"Double Action Chance: {DOUBLE_ACTION_PROBABILITY*100:.0f}%")
+    logger.info(f"Secondary Action Chance: {SECONDARY_ACTION_PROBABILITY*100:.0f}%")
+    logger.info(f"Long Break Chance: {LONG_BREAK_PROBABILITY*100:.0f}%")
+    logger.info("=" * 70)
     
     action_count = 0
+    session_start = datetime.now()
     
     try:
         while True:
@@ -149,7 +234,8 @@ def main():
             
             # Calculate next action interval
             next_interval = get_next_interval()
-            logger.info(f"Next jump in {next_interval:.1f}s ({next_interval/60:.2f} minutes)")
+            minutes = next_interval / 60
+            logger.info(f"Next action in {next_interval:.1f}s ({minutes:.2f} minutes)")
             
             # Wait for the calculated interval
             time.sleep(next_interval)
@@ -159,24 +245,26 @@ def main():
                 logger.warning("Failed to focus game window")
                 continue
             
-            # Wait a bit after focusing (more human-like)
-            time.sleep(FOCUS_DELAY)
+            # Wait a bit after focusing (human-like)
+            time.sleep(random.uniform(FOCUS_DELAY_MIN, FOCUS_DELAY_MAX))
             
-            # Execute jump action
-            if simulate_jump():
+            # Execute action(s)
+            if simulate_action():
                 action_count += 1
-                logger.info(f"Actions executed: {action_count}")
-            
-            # Small random delay before next iteration (appears more natural)
-            time.sleep(random.uniform(0.5, 1.5))
+                elapsed = datetime.now() - session_start
+                logger.info(f"Total actions: {action_count} | Session time: {elapsed}")
     
     except KeyboardInterrupt:
         logger.info("Script interrupted by user")
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
     finally:
+        elapsed = datetime.now() - session_start
+        logger.info("=" * 70)
         logger.info("FFXIV NoAFK Script Stopped")
         logger.info(f"Total actions executed: {action_count}")
+        logger.info(f"Total session time: {elapsed}")
+        logger.info("=" * 70)
 
 if __name__ == "__main__":
     main()
